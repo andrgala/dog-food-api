@@ -1,42 +1,58 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Query
 from fastapi.responses import JSONResponse
 import pytesseract
 from PIL import Image
 import io
 import cv2
 import numpy as np
+from firestore_helper import add_dog_food_product, search_products_by_name
 
 app = FastAPI()
 
-def preprocess_image(img_bytes):
-    """Preprocess image for better OCR accuracy without heavy operations."""
-    nparr = np.frombuffer(img_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-    height, width = img.shape[:2]
-
-    if width < 1000 or height < 1000:
-        img = cv2.resize(img, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)
-
-    return Image.fromarray(thresh)
-
-def run_ocr(image: Image.Image):
-    """Run Tesseract OCR with optimized config."""
-    custom_config = r'--oem 3 --psm 6'
-    return pytesseract.image_to_string(image, config=custom_config)
+@app.get("/")
+async def root():
+    return {"message": "Dog Food API is running!"}
 
 @app.post("/upload/")
-async def upload_image(
-    image: UploadFile = File(...)
-):
-    if not image or not image.filename:
-        return JSONResponse(content={"error": "No image uploaded."}, status_code=400)
+async def upload_image(image: UploadFile = File(...)):
+    try:
+        # Read uploaded image into memory
+        image_bytes = await image.read()
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    image_bytes = await image.read()
-    processed_img = preprocess_image(image_bytes)
-    extracted_text = run_ocr(processed_img).strip()
+        # Convert to RGB (PIL expects RGB format)
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        pil_image = Image.fromarray(img_rgb)
 
-    return JSONResponse(content={"extracted_text": extracted_text})
+        # OCR extraction
+        extracted_text = pytesseract.image_to_string(pil_image)
+
+        # Basic fields (simple for now)
+        brand_name = "Unknown Brand"
+        product_name = "Unknown Product"
+        ingredients = extracted_text
+        feeding_guidelines = "Feeding guidelines not extracted"
+
+        extracted_texts = {
+            "brandName": brand_name,
+            "productName": product_name,
+            "ingredients": ingredients,
+            "feedingGuidelines": feeding_guidelines
+        }
+
+        # Save extracted data into Firestore
+        add_dog_food_product(extracted_texts)
+
+        return JSONResponse(content={"extracted_texts": extracted_texts})
+
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+@app.get("/search-products/")
+async def search_products(query: str = Query(...)):
+    try:
+        products = search_products_by_name(query)
+        return {"products": products}
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
