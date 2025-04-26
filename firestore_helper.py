@@ -1,11 +1,16 @@
 import os
+import json
 from google.cloud import firestore
+from google.oauth2 import service_account
 
-# Load Google credentials
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/Users/andreasgalatoulas/cognitail-e29fd163390d.json"
+# Get JSON credentials from environment variable
+credentials_info = json.loads(os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON'])
 
-# Initialize Firestore
-db = firestore.Client()
+# Create credentials object
+credentials = service_account.Credentials.from_service_account_info(credentials_info)
+
+# Initialize Firestore client
+db = firestore.Client(credentials=credentials, project=credentials.project_id)
 
 def add_dog_food_product(product_data):
     """
