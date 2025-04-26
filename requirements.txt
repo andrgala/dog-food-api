@@ -1,8 +1,10 @@
 fastapi
 uvicorn
-pillow
-pytesseract
 python-multipart
 opencv-python
-google-cloud-firestore
+numpy
+pytesseract  # (you can remove later if you want)
+google-cloud-vision
 google-auth
+google-auth-oauthlib
+google-auth-httplib2
