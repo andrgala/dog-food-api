@@ -3,7 +3,13 @@ import io
 import os
 
 # Load credentials automatically
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "cognitail-e29fd163390d.json"
+import json
+from google.oauth2 import service_account
+
+credentials_info = json.loads(os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"])
+credentials = service_account.Credentials.from_service_account_info(credentials_info)
+
+client = vision.ImageAnnotatorClient(credentials=credentials)
 
 client = vision.ImageAnnotatorClient()
 
