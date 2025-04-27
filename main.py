@@ -17,8 +17,6 @@ async def upload_image(image: UploadFile = File(...)):
         # Extract text using Google Vision
         extracted_text = detect_text_from_image_bytes(contents)
 
-        # Here you could add smarter splitting if needed
-        # For now just return the whole text
         extracted_texts = {
             "brandName": "",
             "productName": "",
@@ -36,5 +34,14 @@ async def search_products(query: str):
     try:
         products = search_products_by_name(query)
         return {"products": products}
+    except Exception as e:
+        return {"error": str(e)}
+
+# ✅ NEW: Add Product Endpoint
+@app.post("/add-product/")
+async def add_product(product: dict):
+    try:
+        add_dog_food_product(product)
+        return {"message": "Product added successfully"}
     except Exception as e:
         return {"error": str(e)}
