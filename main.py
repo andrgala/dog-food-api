@@ -7,23 +7,46 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 from google.cloud import vision
-
-# ✅ Initialize Firestore and Vision from environment variable
-if not firebase_admin._apps:
-    firebase_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
-    if firebase_creds_json:
-        creds_dict = json.loads(firebase_creds_json)
-        cred = credentials.Certificate(creds_dict)
-        firebase_admin.initialize_app(cred)
-    else:
-        raise Exception("Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable.")
-
-db = firestore.client()
-vision_client = vision.ImageAnnotatorClient()
+from google.oauth2 import service_account
 
 app = FastAPI()
 
-# ✅ Add CORS immediately
+# Global variables for db and vision client
+db = None
+vision_client = None
+
+# ✅ Helper to initialize services
+def initialize_services():
+    firebase_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+    if not firebase_creds_json:
+        raise Exception("Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable.")
+    
+    creds_dict = json.loads(firebase_creds_json)
+    cred = credentials.Certificate(creds_dict)
+
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(cred)
+
+    db = firestore.client()
+    
+    vision_credentials = service_account.Credentials.from_service_account_info(creds_dict)
+    vision_client = vision.ImageAnnotatorClient(credentials=vision_credentials)
+
+    return db, vision_client
+
+# ✅ FastAPI Startup Event
+@app.on_event("startup")
+async def startup_event():
+    global db, vision_client
+    db, vision_client = initialize_services()
+    print("✅ Services initialized")
+
+# ✅ FastAPI Shutdown Event (optional)
+@app.on_event("shutdown")
+async def shutdown_event():
+    print("🛑 Shutting down... (nothing to clean manually)")
+
+# ✅ Add CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -40,7 +63,6 @@ class ImageUrlRequest(BaseModel):
 async def root():
     return {"message": "API is live"}
 
-# ✅ Upload endpoint that accepts URL
 @app.post("/upload/")
 async def upload_image_url(data: ImageUrlRequest):
     try:
@@ -74,7 +96,6 @@ async def upload_image_url(data: ImageUrlRequest):
         print("Error in upload_image_url:", str(e))
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-# ✅ Save product endpoint
 @app.post("/add-product/")
 async def add_product(data: dict):
     try:
@@ -84,7 +105,6 @@ async def add_product(data: dict):
         print("Error saving product:", str(e))
         raise HTTPException(status_code=500, detail="Failed to save product")
 
-# ✅ Search products endpoint
 @app.get("/search-products/")
 async def search_products(query: str):
     try:
