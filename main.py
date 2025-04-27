@@ -2,6 +2,19 @@ from fastapi import FastAPI, UploadFile, File
 from vision_helper import detect_text_from_image_bytes
 from firestore_helper import add_dog_food_product, search_products_by_name
 import shutil
+from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+# ✅ Add CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app = FastAPI()
 
