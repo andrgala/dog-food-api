@@ -16,8 +16,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app = FastAPI()
-
 @app.get("/")
 def read_root():
     return {"message": "Dog Food API is running!"}
