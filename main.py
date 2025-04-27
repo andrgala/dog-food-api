@@ -2,16 +2,21 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
-from io import BytesIO
-from google.cloud import vision
 import os
+import json
 import firebase_admin
 from firebase_admin import credentials, firestore
+from google.cloud import vision
 
-# ✅ Initialize Firestore and Vision
+# ✅ Initialize Firestore and Vision from environment variable
 if not firebase_admin._apps:
-    cred = credentials.Certificate("cognitail-e29fd163390d.json")  # your service account key
-    firebase_admin.initialize_app(cred)
+    firebase_creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+    if firebase_creds_json:
+        creds_dict = json.loads(firebase_creds_json)
+        cred = credentials.Certificate(creds_dict)
+        firebase_admin.initialize_app(cred)
+    else:
+        raise Exception("Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable.")
 
 db = firestore.client()
 vision_client = vision.ImageAnnotatorClient()
@@ -61,7 +66,6 @@ async def upload_image_url(data: ImageUrlRequest):
         if texts:
             full_text = texts[0].description
             print("Full OCR Text:", full_text)
-            # You can split/analyze full_text more here for brand, ingredients etc
             extracted_texts["productName"] = full_text.strip()
 
         return {"extracted_texts": extracted_texts}
